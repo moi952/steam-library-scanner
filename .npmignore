@@ -2,6 +2,5 @@ src/
 tests/
 coverage/
 tsconfig.json
-*.ts
 *.log
 .gitignore
