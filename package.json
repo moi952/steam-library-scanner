@@ -1,0 +1,33 @@
+{
+  "name": "steam-library-scanner",
+  "version": "1.0.0",
+  "description": "A Node.js library to scan Steam library data",
+  "main": "dist/index.js",
+  "types": "dist/types/index.d.ts",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/moi952/steam-library-scanner.git"
+  },
+  "author": "Charly MANAI <charlydu95@hotmail.fr>",
+  "license": "MIT",
+  "keywords": [
+    "steam",
+    "games",
+    "scanner",
+    "node"
+  ],
+  "dependencies": {
+    "@types/fs-extra": "^11.0.4",
+    "fs": "^0.0.1-security",
+    "fs-extra": "^11.3.0",
+    "path": "^0.12.7",
+    "steam-binary-vdf": "^0.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.1"
+  },
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build"
+  }
+}
