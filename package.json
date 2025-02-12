@@ -21,6 +21,7 @@
     "fs": "^0.0.1-security",
     "fs-extra": "^11.3.0",
     "path": "^0.12.7",
+    "simple-vdf": "^1.1.1",
     "steam-binary-vdf": "^0.1.0"
   },
   "devDependencies": {

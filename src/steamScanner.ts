@@ -4,6 +4,7 @@ import { parseAcfFile } from "./acfParser";
 import { getNonSteamGames } from "./shortcuts";
 import { SteamGame } from "./type/SteamGame";
 import { log, warn, error } from "./utils/logger";
+const vdf = require("simple-vdf");
 
 /**
  * Retrieves installed Steam games by reading appmanifest_*.acf files.
@@ -94,4 +95,64 @@ export const getAllSteamGames = async (
   log("Total games found:", all.length);
 
   return { steamGames, nonSteamGames, all };
+};
+
+/**
+ * Method to retrieve Steam users.
+ * @returns An array of objects containing the user ID and name.
+ */
+export const getSteamUsers = async (
+  steamPath: string
+): Promise<{ id: string; name: string }[]> => {
+  const usersPath = path.join(steamPath, "userdata");
+  const loginUsersPath = path.join(steamPath, "config", "loginusers.vdf");
+
+  log(`Checking Steam users folder at: ${usersPath}`);
+
+  if (fs.existsSync(usersPath) && fs.existsSync(loginUsersPath)) {
+    const users = fs.readdirSync(usersPath);
+    log(`Found ${users.length} Steam user folders.`);
+
+    // Read the loginusers.vdf file as a string
+    const loginUsersContent = fs.readFileSync(loginUsersPath, "utf-8");
+    log(`Read loginusers.vdf file content.`);
+
+    try {
+      // Parse the VDF content using simple-vdf
+      const parsedVdf = vdf.parse(loginUsersContent);
+      log(`Successfully parsed VDF file.`, parsedVdf);
+
+      const userData = parsedVdf.users || {};
+      log("userData :", userData);
+
+      if (!userData) {
+        log(`No users found in the VDF file.`);
+        return [];
+      }
+
+      // Map user IDs with their names
+      const usersFound = users.map((userId) => {
+        // Try to find a matching user in the VDF data
+        const userInfo = Object.values(userData).find(
+          (user: any) => (user as any).AccountName
+        );
+        return {
+          id: userId,
+          name:
+            (userInfo as any)?.AccountName ||
+            (userInfo as any)?.PersonaName ||
+            "Unknown",
+        };
+      });
+
+      log("Users found", usersFound);
+      return usersFound;
+    } catch (error: any) {
+      log(`Error parsing VDF file: ${error.message}`);
+      return [];
+    }
+  } else {
+    log("No Steam users folder or loginusers.vdf file found.");
+    return [];
+  }
 };
