@@ -3,7 +3,7 @@
  */
 
 export interface AcfGameInfo {
-  [key: string]: string;
+	[key: string]: string;
 }
 
 /**
@@ -12,17 +12,17 @@ export interface AcfGameInfo {
  * @returns An object with all extracted properties.
  */
 export const parseAcfFile = (content: string): AcfGameInfo => {
-  const gameInfo: AcfGameInfo = {};
-  const lines = content.split("\n");
+	const gameInfo: AcfGameInfo = {};
+	const lines = content.split("\n");
 
-  lines.forEach((line) => {
-    const match = line.match(/"([^"]+)"\s+"([^"]+)"/);
-    if (match) {
-      const key = match[1];
-      const value = match[2];
-      gameInfo[key] = value;
-    }
-  });
+	lines.forEach((line) => {
+		const match = line.match(/"([^"]+)"\s+"([^"]+)"/);
+		if (match) {
+			const key = match[1];
+			const value = match[2];
+			gameInfo[key] = value;
+		}
+	});
 
-  return gameInfo;
+	return gameInfo;
 };

@@ -1,0 +1,18 @@
+{
+  "printWidth": 100,
+  "tabWidth": 2,
+  "useTabs": true,
+  "semi": true,
+  "trailingComma": "all",
+  "endOfLine": "lf",
+  "singleQuote": false,
+  "quoteProps": "preserve",
+  "overrides": [
+    {
+      "files": ["*.test.*"],
+      "options": {
+        "printWidth": 100
+      }
+    }
+  ]
+}

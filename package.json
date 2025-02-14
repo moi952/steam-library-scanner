@@ -25,9 +25,11 @@
     "steam-binary-vdf": "^0.1.0"
   },
   "devDependencies": {
-    "@types/node": "^22.13.1"
+    "@types/node": "^22.13.1",
+    "prettier": "^3.5.1"
   },
   "scripts": {
+    "prettier": "prettier --write \"src/**/*.{js,jsx,ts,tsx}\"",
     "build": "tsc",
     "prepublishOnly": "npm run build"
   }
