@@ -3,6 +3,7 @@ import * as path from "path";
 import { readVdf } from "steam-binary-vdf";
 import { SteamGame } from "./type/SteamGame";
 import { log, error } from "./utils/logger";
+import { normalizePath } from "./utils/pathUtils";
 
 /**
  * Gets non-Steam games (shortcuts) from the shortcuts.vdf file.
@@ -11,7 +12,13 @@ import { log, error } from "./utils/logger";
  * @returns An array of SteamGame for non-Steam shortcuts.
  */
 export const getNonSteamGames = async (steamPath: string, userId: string): Promise<SteamGame[]> => {
-	const userDataPath = path.join(steamPath, "userdata", userId, "config", "shortcuts.vdf");
+	const userDataPath = path.join(
+		normalizePath(steamPath),
+		"userdata",
+		userId,
+		"config",
+		"shortcuts.vdf",
+	);
 	const nonSteamGames: SteamGame[] = [];
 
 	log("User data path:", userDataPath);

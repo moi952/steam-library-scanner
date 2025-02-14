@@ -5,17 +5,8 @@ import { parseAcfFile } from "./acfParser";
 import { getNonSteamGames } from "./shortcuts";
 import { SteamGame } from "./type/SteamGame";
 import { log, warn, error } from "./utils/logger";
+import { normalizePath } from "./utils/pathUtils";
 const vdf = require("simple-vdf");
-
-/**
- * Normalizes a path by expanding ~ and correcting separators for each OS.
- */
-const normalizePath = (filePath: string): string => {
-	if (filePath.startsWith("~")) {
-		return path.join(os.homedir(), filePath.slice(1));
-	}
-	return path.normalize(filePath);
-};
 
 /**
  * Formats the image path for a Steam game.
@@ -24,18 +15,7 @@ const normalizePath = (filePath: string): string => {
  * @returns The formatted image path.
  */
 const formatImagePath = (steamPath: string, appId: string): string => {
-	const platform = os.platform();
-	let imagePath = "";
-
-	if (platform === "win32") {
-		// Windows: the image is in a subfolder named by the appId
-		imagePath = path.join(steamPath, "appcache", "librarycache", appId, "library_600x900.jpg");
-	} else {
-		// macOS & Linux: the image is directly in librarycache
-		imagePath = path.join(steamPath, "appcache", "librarycache", `${appId}_library_600x900.jpg`);
-	}
-
-	return normalizePath(imagePath);
+	return path.join(steamPath, "appcache", "librarycache", appId, "library_600x900.jpg");
 };
 
 /**
@@ -59,7 +39,8 @@ const formatSteamCmd = (appId: string): string => {
  * @returns An array of SteamGame for installed Steam games.
  */
 export const getSteamInstalledGames = (steamPath: string): SteamGame[] => {
-	const steamConfigPath = normalizePath(path.join(steamPath, "steamapps"));
+	const steamPathNormalized = normalizePath(steamPath);
+	const steamConfigPath = path.join(steamPathNormalized, "steamapps");
 
 	if (!fs.existsSync(steamConfigPath)) {
 		warn(`Le dossier SteamApps n'existe pas: ${steamConfigPath}`);
@@ -91,7 +72,7 @@ export const getSteamInstalledGames = (steamPath: string): SteamGame[] => {
 					id: gameInfo.appid,
 					name: gameInfo.name || `Steam Game ${gameInfo.appid}`,
 					cmd: formatSteamCmd(gameInfo.appid),
-					imagePath: formatImagePath(steamPath, gameInfo.appid),
+					imagePath: formatImagePath(steamPathNormalized, gameInfo.appid),
 					universe: gameInfo.Universe,
 					stateFlags: gameInfo.StateFlags,
 					installdir: gameInfo.installdir,
@@ -148,8 +129,9 @@ export const getAllSteamGames = async (
  * @returns An array of objects containing the user ID and name.
  */
 export const getSteamUsers = async (steamPath: string): Promise<{ id: string; name: string }[]> => {
-	const usersPath = normalizePath(path.join(steamPath, "userdata"));
-	const loginUsersPath = normalizePath(path.join(steamPath, "config", "loginusers.vdf"));
+	const steamPathNormalized = normalizePath(steamPath);
+	const usersPath = path.join(steamPathNormalized, "userdata");
+	const loginUsersPath = path.join(steamPathNormalized, "config", "loginusers.vdf");
 
 	log(`Checking Steam users folder at: ${usersPath}`);
 
