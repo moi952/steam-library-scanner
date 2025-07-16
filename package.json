@@ -27,7 +27,8 @@
   },
   "devDependencies": {
     "@types/node": "^22.13.1",
-    "prettier": "^3.5.1"
+    "prettier": "^3.5.1",
+    "typescript": "^5.8.3"
   },
   "scripts": {
     "prettier": "prettier --write \"src/**/*.{js,jsx,ts,tsx}\"",
