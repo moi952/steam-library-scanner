@@ -4,9 +4,10 @@ import * as os from "os";
 import { parseAcfFile } from "./acfParser";
 import { getNonSteamGames } from "./shortcuts";
 import { SteamGame } from "./type/SteamGame";
-import { log, warn, error } from "./utils/logger";
+import { log, warn, error, info } from "./utils/logger";
 import { normalizePath } from "./utils/pathUtils";
 const vdf = require("simple-vdf");
+import { readLocalConfigApps } from "./utils/vdfUtils";
 
 /**
  * Formats the image path for a Steam game.
@@ -38,25 +39,31 @@ const formatSteamCmd = (appId: string): string => {
  * @param steamPath Steam installation path.
  * @returns An array of SteamGame for installed Steam games.
  */
-export const getSteamInstalledGames = (steamPath: string): SteamGame[] => {
+export const getSteamInstalledGames = async (
+	steamPath: string,
+	userId: string,
+): Promise<SteamGame[]> => {
+	userId = String(userId);
 	const steamPathNormalized = normalizePath(steamPath);
 	const steamConfigPath = path.join(steamPathNormalized, "steamapps");
 
+	const localCfgApps = readLocalConfigApps(steamPathNormalized, userId);
+
 	if (!fs.existsSync(steamConfigPath)) {
-		warn(`Le dossier SteamApps n'existe pas: ${steamConfigPath}`);
+		warn(`The SteamApps folder does not exist: ${steamConfigPath}`);
 		return [];
 	}
 
 	const files = fs.readdirSync(steamConfigPath);
-	log("Scanning steamapps folder", files);
+	info("Scanning steamapps folder", files);
 
 	const acfFiles = files.filter((file) => file.startsWith("appmanifest_") && file.endsWith(".acf"));
-	log("Manifest files found:", acfFiles);
+	info("Manifest files found:", acfFiles);
 
 	const steamGames: SteamGame[] = acfFiles
 		.map((file) => {
 			const filePath = path.join(steamConfigPath, file);
-			log("Processing manifest file:", filePath);
+			info("Processing manifest file:", filePath);
 
 			try {
 				const gameData = fs.readFileSync(filePath, "utf-8");
@@ -67,9 +74,11 @@ export const getSteamInstalledGames = (steamPath: string): SteamGame[] => {
 					return null;
 				}
 
+				info("Game ID found:", gameInfo.appid);
+				info("Config found:", localCfgApps[gameInfo.appid]);
+
 				const game: SteamGame = {
 					appId: gameInfo.appid,
-					id: gameInfo.appid,
 					name: gameInfo.name || `Steam Game ${gameInfo.appid}`,
 					cmd: formatSteamCmd(gameInfo.appid),
 					imagePath: formatImagePath(steamPathNormalized, gameInfo.appid),
@@ -79,15 +88,14 @@ export const getSteamInstalledGames = (steamPath: string): SteamGame[] => {
 					lastUpdated: gameInfo.LastUpdated,
 					sizeOnDisk: gameInfo.SizeOnDisk,
 					buildid: gameInfo.buildid,
-					lastPlayed: gameInfo.LastPlayed,
-					exe: undefined,
-					startDir: undefined,
-					shortcutPath: undefined,
-					launchOptions: undefined,
-					hidden: undefined,
+					lastPlayed: localCfgApps[gameInfo.appid]?.LastPlayed || gameInfo.LastPlayed,
+					exe: undefined, // TODO found with https://github.com/SteamDatabase/SteamAppInfo ?
+					startDir: undefined, // TODO found with https://github.com/SteamDatabase/SteamAppInfo ?
+					launchOptions: localCfgApps[gameInfo.appid]?.LaunchOptions,
+					hidden: undefined, // info not found
 					tags: [],
 				};
-				log("Game parsed successfully:", game.name);
+				info("Game parsed successfully:", game.name);
 				return game;
 			} catch (err) {
 				error("Error reading or parsing file:", filePath, err);
@@ -96,7 +104,7 @@ export const getSteamInstalledGames = (steamPath: string): SteamGame[] => {
 		})
 		.filter((game): game is SteamGame => game !== null);
 
-	log("Total Steam games found:", steamGames.length);
+	info("Total Steam games found:", steamGames.length);
 	return steamGames;
 };
 
@@ -115,20 +123,30 @@ export const getAllSteamGames = async (
 	nonSteamGames: SteamGame[];
 	all: SteamGame[];
 }> => {
+	userId = String(userId);
 	log("Retrieving all Steam games...");
-	const steamGames = getSteamInstalledGames(steamPath);
+	const steamGames = await getSteamInstalledGames(steamPath, userId);
 	const nonSteamGames = await getNonSteamGames(steamPath, userId);
 	const all = [...steamGames, ...nonSteamGames];
-	log("Total games found:", all.length);
+	info("Total games found:", all.length);
 
 	return { steamGames, nonSteamGames, all };
+};
+
+// Converts a numeric SteamID3 (string) to a SteamID64 string
+const steamID3ToSteamID64 = (steamID3: string): string => {
+	const accountId = BigInt(steamID3);
+	const steamId64 = accountId + BigInt("76561197960265728");
+	return steamId64.toString();
 };
 
 /**
  * Method to retrieve Steam users.
  * @returns An array of objects containing the user ID and name.
  */
-export const getSteamUsers = async (steamPath: string): Promise<{ id: string; name: string }[]> => {
+export const getSteamUsers = async (
+	steamPath: string,
+): Promise<{ id: string; name: string; accountId: string; accountName: string }[]> => {
 	const steamPathNormalized = normalizePath(steamPath);
 	const usersPath = path.join(steamPathNormalized, "userdata");
 	const loginUsersPath = path.join(steamPathNormalized, "config", "loginusers.vdf");
@@ -136,44 +154,39 @@ export const getSteamUsers = async (steamPath: string): Promise<{ id: string; na
 	log(`Checking Steam users folder at: ${usersPath}`);
 
 	if (fs.existsSync(usersPath) && fs.existsSync(loginUsersPath)) {
-		const users = fs.readdirSync(usersPath);
-		log(`Found ${users.length} Steam user folders.`);
+		const userFolders = fs.readdirSync(usersPath);
+		info(`Found ${userFolders.length} Steam user folders.`);
 
-		// Read the loginusers.vdf file as a string
 		const loginUsersContent = fs.readFileSync(loginUsersPath, "utf-8");
-		log(`Read loginusers.vdf file content.`);
+		info(`Read loginusers.vdf file content.`);
 
 		try {
-			// Parse the VDF content using simple-vdf
 			const parsedVdf = vdf.parse(loginUsersContent);
-			log(`Successfully parsed VDF file.`, parsedVdf);
+			info(`Successfully parsed VDF file.`, parsedVdf);
 
 			const userData = parsedVdf.users || {};
-			log("userData :", userData);
+			info("userData :", userData);
 
-			if (!userData) {
-				log(`No users found in the VDF file.`);
-				return [];
-			}
-
-			// Map user IDs with their names
-			const usersFound = users.map((userId) => {
-				// Try to find a matching user in the VDF data
-				const userInfo = Object.values(userData).find((user: any) => (user as any).AccountName);
+			// For each user folder, we look for its info in loginusers.vdf
+			const usersFound = userFolders.map((userId) => {
+				const steamId64 = steamID3ToSteamID64(userId);
+				const userInfo = userData[steamId64];
 				return {
 					id: userId,
-					name: (userInfo as any)?.AccountName || (userInfo as any)?.PersonaName || "Unknown",
+					accountId: steamId64,
+					name: userInfo?.PersonaName || userInfo?.AccountName || "Unknown",
+					accountName: userInfo?.AccountName || "",
 				};
 			});
 
-			log("Users found", usersFound);
+			info("Users found", usersFound);
 			return usersFound;
 		} catch (error: any) {
-			log(`Error parsing VDF file: ${error.message}`);
+			error(`Error parsing VDF file: ${error.message}`);
 			return [];
 		}
 	} else {
-		log("No Steam users folder or loginusers.vdf file found.");
+		warn("No Steam users folder or loginusers.vdf file found.");
 		return [];
 	}
 };
